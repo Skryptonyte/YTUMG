@@ -64,7 +64,7 @@
 -(void) saveImage;
 @end
 
-// Youtube Ad Controller
+// Youtube Player Controller
 
 @interface YTPlayerViewController: UIViewController
 -(void) playbackController:(id) arg1 didReceiveAdMarkers:(id) arg2;
@@ -72,44 +72,36 @@
 - (void) playbackController:(id) arg1 willStartAdSurveyWithAdInterrupt: (id) arg2;
 @end
 
-// Youtube Ad Interrupt 
-@interface YTAdInterrupt: NSObject
-- (id) initWithAd:(id)arg1 adBreak:(id)arg2 timingData:(id)arg3; 
-// arg1: YTVideoAdRendererAdapter
-// arg2: YTAdBreakRendererAdapter 
-// arg3: YTTimingPlayerResponderEventData
-- (void) setAdPlaybackData:(id) arg1;
-// arg1: YTPlaybackData
--(void) setInitialMediaTime: (CGFloat) arg1;
--(id) ad;
-@end
 
 // Youtube playback controller, ad loading is coordinated over here
 // A good chunk of its methods are ads related.... Gotta get that sweet ad money eh?
 @interface YTLocalPlaybackController: NSObject
--(void) loadVideoAdWithAdInterrupt:(id) arg1;   
-// arg1: YTAdInterrupt
--(void) loadAdSurveyWithAdInterrupt:(id) arg1;    // Same as above????
-- (void) prebufferAdInterrupt: (id) arg1 forPlaybackAtCurrentVideoMediaTime: (CGFloat) arg2;
-
 -(id) adsPlaybackCoordinator: (id)arg1 playAdInterrupt: (id) arg2;
 // arg1: YTAdsControlFlowPlaybackCoordinator
 // arg2: YTAdInterrupt
 -(void)adsPlaybackCoordinatorPrepareToPlayAd:(id) arg1;
 // arg1: YTAdsControlFlowPlaybackCoordinator
--(void) playerViewForAdsPlaybackCoordinator:(id) arg1;
-//arg1: YTAdsControlFlowPlaybackCoordinator
--(void)didPressSkipAd;
--(void)startAdOverlay;
-
 -(void) updateForceDisableBackgroundingForVideoController:(id) arg1;
 // arg1: YTSingleVideoController
 @end
 
-@interface YTWatchController: NSObject
--(void) loadCompanionAd: (id)arg1 layoutID: (id)arg2 interactionLoggingAdsClientData: (id)arg3;
+
+@interface YTAdsPlaybackService: NSObject
+-(void) setAdsPlaybackSurface: (id) arg1;
+@end
+// Youtube Miniplayer
+
+@interface GPBMessage: NSObject
 @end
 
+@interface YTIMiniplayerRenderer: GPBMessage
+@property (nonatomic,assign,readwrite) int playbackMode;
+
+-(int) playbackMode;
+-(void) setPlaybackMode:(int) arg1;
+-(void) setHasMinimizedEndpoint: (BOOL) arg1;
+-(BOOL) hasMinimizedEndpoint;
+@end
 
 static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
 
@@ -123,14 +115,7 @@ static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator allo
 	[view addGestureRecognizer: gesture];
 	//NSLog(@"[YTUMG] ImageZoomNode view loaded");
 }
-/*
--(void) imageNode:(id) arg1 didLoadImage:(id) arg2
-{
-	NSLog(@"[YTUMG] Image Loaded :%@",self.URL );
 
-	%orig;
-}
-*/
 %new
 
 // TODO: Use native GBoard view controller for more consistent UI experience
@@ -141,7 +126,8 @@ static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator allo
 		return;
 	UIViewController* imgController = [[UIApplication sharedApplication] delegate].window.rootViewController;
 
-	NSLog(@"[YTUMG] LONG PRESS");
+	//NSLog(@"[YTUMG] LONG PRESS");
+	
 	OBWelcomeController *saveImageController = [[OBWelcomeController alloc] 
 	initWithTitle:@"Save Image" 
 	detailText:@"Save Community Post Image?" 
@@ -161,8 +147,11 @@ static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator allo
 
 	[[saveImageController buttonTray] addButton: saveButton ];
 
+	saveImageController.modalPresentationStyle = UIModalPresentationPageSheet;
 	[feedbackGen impactOccurred];
 	[imgController presentViewController:saveImageController animated:YES completion:nil];
+	
+
 
 	[feedbackGen prepare];
 
@@ -193,12 +182,11 @@ static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator allo
 
 %hook YTLocalPlaybackController
 
-// Override Ad Loading, strictly only allows video to continue playing uninterrupted
-// Will refine in future to remove other ad views that appear in both feed and beneath video
+/*
 -(void)adsPlaybackCoordinatorPrepareToPlayAd:(id) arg1
 {
 	NSLog(@"[YTUMG] Prepare to play Ad, arg1: %@",arg1);
-	//%orig;
+	%orig;
 }
 
 -(id) adsPlaybackCoordinator: (id)arg1 playAdInterrupt: (id) arg2
@@ -207,11 +195,11 @@ static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator allo
 	//return %orig;
 	return nil;
 }
-
+*/
 // Enable Background Play
 -(void) updateForceDisableBackgroundingForVideoController:(id) arg1
 {
-	NSLog(@"[YTUMG] Override force background off %@",arg1);
+	//NSLog(@"[YTUMG] Override force background off %@",arg1);
 	if (arg1)
 	{
 		MSHookIvar<BOOL>(arg1,"_currentlyBackgroundable") = YES;
@@ -220,7 +208,37 @@ static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator allo
 }
 %end
 
+%hook YTAdsPlaybackService
+// Very simple solution to remove ads
+-(void) setAdsPlaybackSurface:(id) arg1
+{
+	//NSLog(@"[YTUMG] Override ads playback surface: %@",arg1);
+	arg1 = nil;
 
-%ctor {
-	[feedbackGen prepare];
+	%orig;
 }
+%end
+
+// Override Miniplayer Pause for kids video (Snippet not working despite working in FLEX, no idea why pls halp)
+%hook YTIMiniplayerRenderer
+-(void) setPlaybackMode:(int) arg1
+{
+	arg1 = 2;   // 0 - Unknown, 2 - Normal Playback, 4 - Pause Only
+	%orig;
+}
+
+-(void) setHasMinimizedEndpoint: (BOOL) arg1
+{
+	arg1 = NO;
+	%orig;
+}
+
+-(int) playbackMode
+{
+	return 2;
+}
+-(BOOL) hasMinimizedEndpoint
+{	
+	return NO;
+}
+%end
