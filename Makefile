@@ -1,5 +1,5 @@
 TARGET := iphone:clang:latest:14.0
-INSTALL_TARGET_PROCESSES = SpringBoard
+INSTALL_TARGET_PROCESSES = YouTube
 
 
 include $(THEOS)/makefiles/common.mk

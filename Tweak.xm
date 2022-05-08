@@ -219,6 +219,21 @@ static UIImpactFeedbackGenerator* feedbackGen = [[UIImpactFeedbackGenerator allo
 }
 %end
 
+
+%hook YTSingleVideoController
+-(void) updateCurrentlyBackgroundable
+{
+	%orig;
+	MSHookIvar<BOOL>(self,"_currentlyBackgroundable") = YES;
+	MSHookIvar<BOOL>(self,"_isBackgroundingForcedDisabled") = NO;
+}
+-(void) setBackgroundingForcedDisabled:(BOOL) arg1
+{
+	arg1 = false;
+	%orig;
+}
+%end
+
 // Override Miniplayer Pause for kids video (Snippet not working despite working in FLEX, no idea why pls halp)
 %hook YTIMiniplayerRenderer
 -(void) setPlaybackMode:(int) arg1

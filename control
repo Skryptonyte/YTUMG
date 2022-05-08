@@ -1,6 +1,6 @@
 Package: com.skrypton.ytumg
 Name: YTUMG
-Version: 0.0.2
+Version: 0.0.3
 Architecture: iphoneos-arm
 Description: Yet another Youtube tweak. Can you guess what the last three letters stand for?
 Maintainer: skrypton
